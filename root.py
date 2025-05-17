@@ -42,6 +42,7 @@ def scrape_and_save():
                 status = "運休"
             elif "直通運転を中止" in info_text:
                 status = "直通運転中止"
+                
             elif info_text == "平常運転":
                 # 平常運転なら結果に追加しない
                 print(f"ℹ️ {line_name} は平常運転のため結果に追加しません。")
