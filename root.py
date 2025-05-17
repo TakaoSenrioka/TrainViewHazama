@@ -65,11 +65,13 @@ def wait_and_accept_input():
     print("5分待機中です。メッセージがあれば入力してください（Enterでスキップ）：")
     user_input = input().strip()
     if user_input:
-        with open(CUSTOM_FILE, "a", encoding="utf-8") as f:
+        # ファイル全体を置き換え
+        with open(CUSTOM_FILE, "w", encoding="utf-8") as f:
             f.write(user_input + "\n")
-        print(f"📥 メッセージを {CUSTOM_FILE} に追記しました。")
+        print(f"📥 メッセージを {CUSTOM_FILE} に書き込みました。")
     else:
         print("📤 メッセージなし。何も変更しません。")
+
 
 def git_push_if_needed():
     # 差分があるか確認
