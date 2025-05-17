@@ -39,7 +39,9 @@ def scrape_and_save():
             elif "遅れ" in info_text:
                 status = "遅延"
             elif info_text == "平常運転":
-                status = "平常運転"
+                # 平常運転なら結果に追加しない
+                print(f"ℹ️ {line_name} は平常運転のため結果に追加しません。")
+                continue
             else:
                 status = "その他"
 
@@ -57,9 +59,13 @@ def scrape_and_save():
                 "ステータス": "取得失敗",
             })
 
-    output_path = os.path.join(PUBLIC_DIR, "result.csv")
-    pd.DataFrame(results).to_csv(output_path, index=False, encoding="utf-8-sig")
-    print(f"✅ {output_path} に保存されました！")
+    if results:
+        output_path = os.path.join(PUBLIC_DIR, "result.csv")
+        pd.DataFrame(results).to_csv(output_path, index=False, encoding="utf-8-sig")
+        print(f"✅ {output_path} に保存されました！")
+    else:
+        print("ℹ️ すべて平常運転のため、result.csvは更新しません。")
+
 
 def wait_and_accept_input():
     print("5分待機中です。メッセージがあれば入力してください（Enterでスキップ）：")
