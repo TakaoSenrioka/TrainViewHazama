@@ -38,12 +38,14 @@ def scrape_and_save():
                 status = "運転見合わせ"
             elif "遅れ" in info_text:
                 status = "遅延"
+            elif "運休" in info_text:
+                status = "運休"
             elif info_text == "平常運転":
                 # 平常運転なら結果に追加しない
                 print(f"ℹ️ {line_name} は平常運転のため結果に追加しません。")
                 continue
             else:
-                status = "その他"
+                status = "情報"
 
             results.append({
                 "路線名": line_name,
