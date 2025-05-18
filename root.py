@@ -66,12 +66,23 @@ def scrape_and_save():
                 "ステータス": "取得失敗",
             })
 
-    if results:
-        output_path = os.path.join(PUBLIC_DIR, "result.csv")
-        pd.DataFrame(results).to_csv(output_path, index=False, encoding="utf-8-sig")
-        print(f"✅ {output_path} に保存されました！")
-    else:
-        print("ℹ️ すべて平常運転のため、result.csvは更新しません。")
+        if results:
+            output_path = os.path.join(PUBLIC_DIR, "result.csv")
+            pd.DataFrame(results).to_csv(output_path, index=False, encoding="utf-8-sig")
+            print(f"✅ {output_path} に保存されました！")
+        else:
+            # すべて平常運転だった場合の特別な処理
+            now = time.strftime("%-m月%-d日%H時%M分", time.localtime())
+            message = f"京王線は概ね平常運転です。（{now}更新）"
+            output_path = os.path.join(PUBLIC_DIR, "result.csv")
+            df = pd.DataFrame([{
+                "路線名": "京王線",
+                "運行情報": message,
+                "ステータス": "平常運転",
+            }])
+            df.to_csv(output_path, index=False, encoding="utf-8-sig")
+            print("ℹ️ すべて平常運転のため、京王線の平常運転情報を含めて result.csv を作成しました。")
+
 
 
 def wait_and_accept_input():
