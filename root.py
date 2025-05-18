@@ -83,8 +83,6 @@ def scrape_and_save():
             df.to_csv(output_path, index=False, encoding="utf-8-sig")
             print("ℹ️ すべて平常運転のため、京王線の平常運転情報を含めて result.csv を作成しました。")
 
-
-
 def wait_and_accept_input():
     print("5分待機中です。メッセージがあれば入力してください（Enterでスキップ）：")
     user_input = input().strip()
