@@ -4,6 +4,8 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import subprocess
+import sys
+import select
 
 PUBLIC_DIR = "public"
 os.makedirs(PUBLIC_DIR, exist_ok=True)
@@ -88,16 +90,26 @@ def scrape_and_save():
     print(f"✅ {output_path} に保存されました！（{len(results)}件）")
 
 
+
 def wait_and_accept_input():
     print("2分待機中です。メッセージがあれば入力してください（Enterでスキップ）：")
-    user_input = input().strip()
-    if user_input:
-        # ファイル全体を置き換え
-        with open(CUSTOM_FILE, "w", encoding="utf-8") as f:
-            f.write(user_input + "\n")
-        print(f"📥 メッセージを {CUSTOM_FILE} に書き込みました。")
+    print("⏳ 入力待ち（120秒以内）...")
+
+    timeout = 120  # 2分
+    print("👉 入力 > ", end='', flush=True)
+
+    ready, _, _ = select.select([sys.stdin], [], [], timeout)
+
+    if ready:
+        user_input = sys.stdin.readline().strip()
+        if user_input:
+            with open(CUSTOM_FILE, "w", encoding="utf-8") as f:
+                f.write(user_input + "\n")
+            print(f"\n📥 メッセージを {CUSTOM_FILE} に書き込みました。")
+        else:
+            print("\n📤 メッセージなし。何も変更しません。")
     else:
-        print("📤 メッセージなし。何も変更しません。")
+        print("\n⌛ 2分経過。自動スキップします。")
 
 
 def git_push_if_needed():
@@ -121,6 +133,4 @@ if __name__ == "__main__":
         git_push_if_needed()
         print("⏳ Git push後、3分待機します...")
         time.sleep(3 * 60)  # push後の待機（3分）
-        print("⏳ 次の入力受付まで2分待機します...")
-        time.sleep(2 * 60)  # 次のループまでの待機（2分）
         print("🔄 ループを再開します。")
