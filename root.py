@@ -72,7 +72,7 @@ def scrape_and_save():
             if line_name == "京王線":
                 keio_status = "取得失敗"
 
-    # 平常運転で何も追加されていない場合は京王線の情報だけ書く
+    # 平常運転で何も追加されていない場合
     if not results and keio_status is None:
         now = time.strftime("%-m月%-d日%H時%M分", time.localtime())
         message = f"首都圏の鉄道路線はおおむね平常運転です。（{now}更新）"
