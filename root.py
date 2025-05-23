@@ -66,13 +66,10 @@ def scrape_and_save():
 
         except Exception as e:
             print(f"❌ {line_name} エラー: {e}")
-            results.append({
-                "路線名": line_name,
-                "運行情報": "取得エラー",
-                "ステータス": "取得失敗",
-            })
             if line_name == "京王線":
                 keio_status = "取得失敗"
+            # エラー時は result.csv に記録しない
+
 
     # 平常運転で何も追加されていない場合
     if not results and keio_status is None:
