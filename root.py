@@ -17,7 +17,7 @@ def scrape_and_save():
     keio_group = ["京王線", "京王相模原線", "京王高尾線"]
 
     keio_results = []
-    other_abnormal_found = False
+    other_results = []
 
     for index, row in df.iterrows():
         line_name = row["路線名"]
@@ -64,7 +64,7 @@ def scrape_and_save():
             if line_name in keio_group:
                 keio_results.append(result_entry)
             else:
-                other_abnormal_found = True
+                other_results.append(result_entry)
 
         except Exception as e:
             print(f"❌ {line_name} エラー: {e}")
@@ -72,10 +72,14 @@ def scrape_and_save():
 
     results = []
 
-    if not other_abnormal_found and keio_results:
+    if keio_results:
+        # 京王に異常があれば、京王だけを出す
         results = keio_results
-    elif not keio_results and not other_abnormal_found:
-        # すべて平常運転
+    elif other_results:
+        # 京王は平常で、他に異常があればそれを出す
+        results = other_results
+    else:
+        # 全て平常
         now = time.strftime("%-m月%-d日%H時%M分", time.localtime())
         message = f"首都圏の鉄道路線はおおむね平常運転です。（{now}更新）"
         results.append({
@@ -83,8 +87,6 @@ def scrape_and_save():
             "運行情報": message,
             "ステータス": "平常運転",
         })
-    else:
-        print("🛑 京王以外に遅延があるため、京王も含めて出力しません。")
 
     # 結果を保存
     output_path = os.path.join(PUBLIC_DIR, "result.csv")
