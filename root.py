@@ -14,9 +14,10 @@ CUSTOM_FILE = os.path.join(PUBLIC_DIR, "custom.csv")
 
 def scrape_and_save():
     df = pd.read_csv("routes.csv")
-    results = []
+    keio_group = ["京王線", "京王相模原線", "京王高尾線"]
 
-    keio_status = None  # 京王線が異常かどうかを記録するため
+    keio_results = []
+    other_abnormal_found = False
 
     for index, row in df.iterrows():
         line_name = row["路線名"]
@@ -49,30 +50,32 @@ def scrape_and_save():
             elif "ダイヤが乱れ" in info_text:
                 status = "遅延"
             elif info_text == "平常運転":
-                print(f"ℹ️ {line_name} は平常運転のため結果に追加しません。")
-                status = None  # 平常運転は追加しない
+                print(f"ℹ️ {line_name} は平常運転のためスキップ。")
+                continue
             else:
                 status = "情報"
 
-            if status:
-                results.append({
-                    "路線名": line_name,
-                    "運行情報": info_text,
-                    "ステータス": status,
-                })
+            result_entry = {
+                "路線名": line_name,
+                "運行情報": info_text,
+                "ステータス": status,
+            }
 
-            if line_name == "京王線":
-                keio_status = status  # None なら平常、文字列なら異常
+            if line_name in keio_group:
+                keio_results.append(result_entry)
+            else:
+                other_abnormal_found = True
 
         except Exception as e:
             print(f"❌ {line_name} エラー: {e}")
-            if line_name == "京王線":
-                keio_status = "取得失敗"
-            # エラー時は result.csv に記録しない
+            continue
 
+    results = []
 
-    # 平常運転で何も追加されていない場合
-    if not results and keio_status is None:
+    if not other_abnormal_found and keio_results:
+        results = keio_results
+    elif not keio_results and not other_abnormal_found:
+        # すべて平常運転
         now = time.strftime("%-m月%-d日%H時%M分", time.localtime())
         message = f"首都圏の鉄道路線はおおむね平常運転です。（{now}更新）"
         results.append({
@@ -80,6 +83,8 @@ def scrape_and_save():
             "運行情報": message,
             "ステータス": "平常運転",
         })
+    else:
+        print("🛑 京王以外に遅延があるため、京王も含めて出力しません。")
 
     # 結果を保存
     output_path = os.path.join(PUBLIC_DIR, "result.csv")
