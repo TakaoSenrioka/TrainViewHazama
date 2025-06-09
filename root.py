@@ -184,16 +184,16 @@ if __name__ == "__main__":
     last_route_time = 0
     while True:
         now = time.time()
-        # プログラム1の処理（毎分実行）
+        # プログラム1の処理（30秒ごと）
         save_chiba_csv()
 
         # プログラム2の処理（3分ごと）
         if now - last_route_time >= ROUTE_UPDATE_INTERVAL:
             result_path = scrape_routes()
-            extract_chiba_delay_data(result_path)  
+            extract_chiba_delay_data(result_path)
             wait_and_accept_input()
             git_push("運行情報を更新")
             last_route_time = now
 
-        # 次のループまで1秒待機
+        # 次のループまで30秒待機（CHIBA_UPDATE_INTERVALに合わせる）
         time.sleep(CHIBA_UPDATE_INTERVAL)
