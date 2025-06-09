@@ -130,6 +130,27 @@ def scrape_routes():
     print(f"🚃 路線データを {output_path} に保存しました。")
     return output_path
 
+def extract_chiba_delay_data(result_path):
+    now_str = time.strftime('%-m月%-d日%H時%M分')
+    target_lines = ["中央・総武線[各駅停車]", "総武線(快速)[東京〜千葉]"]
+    delay_file = os.path.join(PUBLIC_DIR, "chiba_delay.csv")
+
+    df = pd.read_csv(result_path)
+    filtered = df[df["路線名"].isin(target_lines)]
+
+    if not filtered.empty:
+        filtered.to_csv(delay_file, index=False, encoding="utf-8-sig")
+    else:
+        pd.DataFrame([{
+            "路線名": "現在の運行状況：",
+            "運行情報": f"首都圏の鉄道路線はおおむね平常運転です。（{now_str}更新）",
+            "ステータス": "平常運転"
+        }]).to_csv(delay_file, index=False, encoding="utf-8-sig")
+
+    print(f"📄 chiba_delay.csv を保存しました。")
+    git_push("chiba_delay.csv 更新")
+
+
 def wait_and_accept_input():
     print("✉️ 2分待機中。メッセージがあれば入力してください（Enterでスキップ）：")
     print("👉 入力 > ", end='', flush=True)
@@ -169,6 +190,7 @@ if __name__ == "__main__":
         # プログラム2の処理（3分ごと）
         if now - last_route_time >= ROUTE_UPDATE_INTERVAL:
             result_path = scrape_routes()
+            extract_chiba_delay_data(result_path)  
             wait_and_accept_input()
             git_push("運行情報を更新")
             last_route_time = now
