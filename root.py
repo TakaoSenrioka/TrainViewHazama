@@ -1,17 +1,34 @@
+import tkinter as tk
+from tkinter import scrolledtext, messagebox
+import threading
+import queue
+import time
 import os
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-import time
 import subprocess
-import sys
-import select
 
 PUBLIC_DIR = "public"
+CUSTOM_FILE = os.path.join(PUBLIC_DIR, "custom.csv")
+CHIBA_DELAY_FILE = os.path.join(PUBLIC_DIR, "chiba_delay.csv")
+RESULT_FILE = os.path.join(PUBLIC_DIR, "result.csv")
+
 os.makedirs(PUBLIC_DIR, exist_ok=True)
 
-CUSTOM_FILE = os.path.join(PUBLIC_DIR, "custom.csv")
-CHIBA_DELAY_FILE = os.path.join(PUBLIC_DIR, "chiba_delay.csv")  # 新規ファイルパス
+log_queue = queue.Queue()
+
+def log(msg):
+    log_queue.put(msg)
+
+def gui_logger(text_widget):
+    while not log_queue.empty():
+        msg = log_queue.get()
+        text_widget.configure(state='normal')
+        text_widget.insert(tk.END, msg + "\n")
+        text_widget.configure(state='disabled')
+        text_widget.see(tk.END)
+    text_widget.after(500, gui_logger, text_widget)
 
 def scrape_and_save():
     df = pd.read_csv("routes.csv")
@@ -23,7 +40,7 @@ def scrape_and_save():
     for index, row in df.iterrows():
         line_name = row["路線名"]
         url = row["URL"]
-        print(f"🚃 {line_name} を取得中...")
+        log(f"🚃 {line_name} を取得中...")
 
         try:
             response = requests.get(url, timeout=10)
@@ -51,7 +68,7 @@ def scrape_and_save():
             elif "ダイヤが乱れ" in info_text:
                 status = "遅延"
             elif info_text == "平常運転":
-                print(f"ℹ️ {line_name} は平常運転のためスキップ。")
+                log(f"ℹ️ {line_name} は平常運転のためスキップ。")
                 continue
             else:
                 status = "情報"
@@ -68,16 +85,12 @@ def scrape_and_save():
                 other_results.append(result_entry)
 
         except Exception as e:
-            print(f"❌ {line_name} エラー: {e}")
+            log(f"❌ {line_name} エラー: {e}")
             continue
 
-    results = []
+    results = keio_results if keio_results else other_results
 
-    if keio_results:
-        results = keio_results
-    elif other_results:
-        results = other_results
-    else:
+    if not results:
         now = time.strftime("%-m月%-d日%H時%M分", time.localtime())
         message = f"首都圏の鉄道路線はおおむね平常運転です。（{now}更新）"
         results.append({
@@ -86,53 +99,67 @@ def scrape_and_save():
             "ステータス": "平常運転",
         })
 
-    output_path = os.path.join(PUBLIC_DIR, "result.csv")
-    pd.DataFrame(results).to_csv(output_path, index=False, encoding="utf-8-sig")
-    print(f"✅ {output_path} に保存されました！（{len(results)}件）")
+    pd.DataFrame(results).to_csv(RESULT_FILE, index=False, encoding="utf-8-sig")
+    log(f"✅ {RESULT_FILE} に保存されました！（{len(results)}件）")
 
 def update_chiba_delay_csv():
-    result_path = os.path.join(PUBLIC_DIR, "result.csv")
-    df = pd.read_csv(result_path)
-
-    # チェック対象の路線名
+    df = pd.read_csv(RESULT_FILE)
     chiba_lines = ["中央・総武線[各駅停車]", "総武線(快速)[東京〜千葉]"]
-
-    # 該当路線のみ抽出
     chiba_df = df[df["路線名"].isin(chiba_lines)]
 
     if not chiba_df.empty:
         chiba_df.to_csv(CHIBA_DELAY_FILE, index=False, encoding="utf-8-sig")
-        print(f"✅ {CHIBA_DELAY_FILE} に該当路線の情報を保存しました（{len(chiba_df)}件）")
+        log(f"✅ {CHIBA_DELAY_FILE} に該当路線の情報を保存しました（{len(chiba_df)}件）")
     else:
         now = time.strftime("%-m月%-d日%H時%M分", time.localtime())
         default_message = f"首都圏の鉄道路線はおおむね平常運転です。（{now}更新）"
-        df_default = pd.DataFrame([{
-            "路線名": "現在の運行状況：",
-            "運行情報": default_message,
-            "ステータス": "平常運転"
-        }])
+        df_default = pd.DataFrame([{ "路線名": "現在の運行状況：", "運行情報": default_message, "ステータス": "平常運転" }])
         df_default.to_csv(CHIBA_DELAY_FILE, index=False, encoding="utf-8-sig")
-        print(f"ℹ️ {CHIBA_DELAY_FILE} に平常運転のメッセージを書き込みました。")
+        log(f"ℹ️ {CHIBA_DELAY_FILE} に平常運転のメッセージを書き込みました。")
 
-def wait_and_accept_input():
-    print("2分待機中です。メッセージがあれば入力してください（Enterでスキップ）：")
-    print("⏳ 入力待ち（120秒以内）...")
+def update_custom_message(message):
+    with open(CUSTOM_FILE, "w", encoding="utf-8") as f:
+        f.write(message.strip() + "\n")
+    log(f"📥 カスタムメッセージを {CUSTOM_FILE} に書き込みました。")
 
-    timeout = 120  # 2分
-    print("👉 入力 > ", end='', flush=True)
+def run_scrape_all():
+    scrape_and_save()
+    update_chiba_delay_csv()
 
-    ready, _, _ = select.select([sys.stdin], [], [], timeout)
+def start_scrape():
+    threading.Thread(target=run_scrape_all, daemon=True).start()
 
-    if ready:
-        user_input = sys.stdin.readline().strip()
-        if user_input:
-            with open(CUSTOM_FILE, "w", encoding="utf-8") as f:
-                f.write(user_input + "\n")
-            print(f"\n📥 メッセージを {CUSTOM_FILE} に書き込みました。")
-        else:
-            print("\n📤 メッセージなし。何も変更しません。")
+def on_custom_submit(entry):
+    msg = entry.get()
+    if msg:
+        update_custom_message(msg)
+        entry.delete(0, tk.END)
     else:
-        print("\n⌛ 2分経過。自動スキップします。")
+        messagebox.showinfo("情報", "メッセージを入力してください。")
+
+def build_gui():
+    root = tk.Tk()
+    root.title("鉄道運行情報 スクレイパー GUI")
+
+    frame = tk.Frame(root)
+    frame.pack(padx=10, pady=10)
+
+    log_box = scrolledtext.ScrolledText(frame, width=80, height=20, state='disabled')
+    log_box.pack(pady=10)
+
+    btn = tk.Button(frame, text="スクレイピング開始", command=start_scrape)
+    btn.pack(pady=5)
+
+    custom_label = tk.Label(frame, text="カスタムメッセージ入力：")
+    custom_label.pack()
+    custom_entry = tk.Entry(frame, width=60)
+    custom_entry.pack()
+    custom_button = tk.Button(frame, text="更新", command=lambda: on_custom_submit(custom_entry))
+    custom_button.pack(pady=5)
+
+    gui_logger(log_box)
+    start_git_push_loop()
+    root.mainloop()
 
 def git_push_if_needed():
     status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
@@ -141,18 +168,19 @@ def git_push_if_needed():
             subprocess.run(["git", "add", "."], check=True)
             subprocess.run(["git", "commit", "-m", "Auto update CSV files"], check=True)
             subprocess.run(["git", "push"], check=True)
-            print("🚀 GitHub にプッシュしました。")
+            log("🚀 GitHub にプッシュしました。")
         except subprocess.CalledProcessError as e:
-            print(f"⚠️ Git操作エラー: {e}")
+            log(f"⚠️ Git操作エラー: {e}")
     else:
-        print("🟢 変更なし。GitHubへのプッシュはスキップしました。")
+        log("🟢 変更なし。GitHubへのプッシュはスキップしました。")
+
+def start_git_push_loop():
+    def loop():
+        while True:
+            time.sleep(180)  # 3分
+            git_push_if_needed()
+    threading.Thread(target=loop, daemon=True).start()
+
 
 if __name__ == "__main__":
-    while True:
-        scrape_and_save()
-        update_chiba_delay_csv()  # ← ここで条件チェック＆chiba_delay.csv更新
-        wait_and_accept_input()
-        git_push_if_needed()
-        print("⏳ Git push後、3分待機します...")
-        time.sleep(3 * 60)
-        print("🔄 ループを再開します。")
+    build_gui()
