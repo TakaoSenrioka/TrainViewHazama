@@ -1,0 +1,3 @@
+([('時刻表更新',
+   '/Users/shiromaruedit/Desktop/traininfo/dist/時刻表更新',
+   'EXECUTABLE')],)
