@@ -160,6 +160,7 @@ def build_gui():
 
     gui_logger(log_box)
     start_git_push_loop()
+    start_scrape_loop()
     root.mainloop()
 
 def git_push_if_needed():
@@ -181,6 +182,14 @@ def start_git_push_loop():
             time.sleep(180)  # 3分
             git_push_if_needed()
     threading.Thread(target=loop, daemon=True).start()
+
+def start_scrape_loop():
+    def loop():
+        while True:
+            run_scrape_all()
+            time.sleep(180)  # 3分ごとにスクレイピング
+    threading.Thread(target=loop, daemon=True).start()
+
 
 
 if __name__ == "__main__":
